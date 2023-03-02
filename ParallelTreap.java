@@ -98,8 +98,7 @@ public class ParallelTreap<T extends Comparable<T>> {
 	}
  
  
-	public Node<T> rightRotation(Node<T> root)
-	{
+	public Node<T> rightRotation(Node<T> root) {
 		Node<T> left = root.left;
 		Node<T> leftRight = root.left.right;
 		left.right = root;
@@ -110,11 +109,16 @@ public class ParallelTreap<T extends Comparable<T>> {
 	
 	public Node<T> insert(Node<T> root, T value) {
 		Node<T> temp = root;
+		
+		if (temp == null) {
+			return createNode(value);
+		}
+		
 		ArrayDeque<Node<T>> stackOfPath = new ArrayDeque<>();
 		ArrayDeque<Integer> stackOfLeftOrRightChild = new ArrayDeque<>();
 		
 		while (temp != null) {
-			stackOfPath.add(temp);
+			stackOfPath.push(temp);
 			if (value.compareTo(temp.value) < 0) {
 				temp = temp.left;
 				stackOfLeftOrRightChild.push(0);
@@ -124,38 +128,43 @@ public class ParallelTreap<T extends Comparable<T>> {
 				stackOfLeftOrRightChild.push(1);
 			}
 			else {
-				temp = null;
-				stackOfLeftOrRightChild.push(2);
-				break;
+				return root;
 			}
 		}
-		
-		int leftOrRightChild = stackOfLeftOrRightChild.peekFirst();
-		if (leftOrRightChild == 2)
-			return root;
-		
+				
+		int leftOrRightChild = 0;
 		Node<T> parent = null;		
 		Node<T> current = createNode(value);
 		while (stackOfPath.size() > 0) {
 			parent = stackOfPath.pop();
+			
+			/*
+			 LockQueue<> waitingOnMe			 
+			 waitingOnMe.lock();
+			 
+			 // do your magic
+			 
+			 waitingOnMe.unlock()	
+			 */
+			
 			leftOrRightChild = stackOfLeftOrRightChild.pop();
 			if (leftOrRightChild == 0) {
 				parent.left = current;
 				if (parent.left != null && parent.left.priority > parent.priority) {
-					parent = rightRotation(parent);
+					parent = leftRotation(parent);
 				}
 			}
 			else {
 				parent.right = current;
 				if (parent.right != null && parent.right.priority > parent.priority) {
-					parent = leftRotation(parent);
+					parent = rightRotation(parent);
 				}
 			}
 			current = parent;
 		}
 	
-		return root;
-	}	
+		return root = parent;
+	}
 	
 //	public Node<T> insert(Node<T> root, T value) {
 //		if (root == null) {

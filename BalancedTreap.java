@@ -41,24 +41,21 @@ public class BalancedTreap<T extends Comparable<T>> {
 		}
 	}
 	
-	public Node<T> rotateLeft(Node<T> root)
-    {
-		Node<T> R = root.right;
-		Node<T> X = root.right.left;
-        R.left = root;
-        root.right = X;
-        return R;
-    }
- 
- 
-    public Node<T> rotateRight(Node<T> root)
-    {
-    	Node<T> L = root.left;
-    	Node<T> Y = root.left.right;
-        L.right = root;
-        root.left = Y;
-        return L;
-    }
+	public Node<T> leftRotation(Node<T> root) {
+		Node<T> right = root.right;
+		Node<T> rightLeft = root.right.left;
+		right.left = root;
+		root.right = rightLeft;
+		return right;
+	}
+     
+    public Node<T> rightRotation(Node<T> root) {
+		Node<T> left = root.left;
+		Node<T> leftRight = root.left.right;
+		left.right = root;
+		root.left = leftRight;
+		return left;
+	}
     
     public Node<T> insert(Node<T> root, T value) {
 		Node<T> temp = root;
@@ -71,7 +68,7 @@ public class BalancedTreap<T extends Comparable<T>> {
 		ArrayDeque<Integer> stackOfLeftOrRightChild = new ArrayDeque<>();
 		
 		while (temp != null) {
-			stackOfPath.add(temp);
+			stackOfPath.push(temp);
 			if (value.compareTo(temp.value) < 0) {
 				temp = temp.left;
 				stackOfLeftOrRightChild.push(0);
@@ -94,20 +91,42 @@ public class BalancedTreap<T extends Comparable<T>> {
 			if (leftOrRightChild == 0) {
 				parent.left = current;
 				if (parent.left != null && parent.left.priority > parent.priority) {
-					parent = rotateRight(parent);
+					parent = rightRotation(parent);
 				}
 			}
 			else {
 				parent.right = current;
 				if (parent.right != null && parent.right.priority > parent.priority) {
-					parent = rotateLeft(parent);
+					parent = leftRotation(parent);
 				}
 			}
 			current = parent;
 		}
 	
-		return root;
+		return root = parent;
 	}	
+    
+//	public Node<T> insertRecursive(Node<T> root, T value) {
+//		if (root == null) {
+//			return createNode(value);
+//		}
+//		if (value.compareTo(root.value) < 0) {
+//			root.left = insert(root.left, value);
+//			if (root.left != null && root.left.priority > root.priority) {
+//				root = rightRotation(root);
+//			}
+//		}
+//		else if (value.compareTo(root.value) > 0){
+//			root.right = insert(root.right, value);
+//			if (root.right != null && root.right.priority > root.priority) {
+//				root = leftRotation(root);
+//			}
+//		}
+//		else {
+//			;
+//		}
+//		return root;
+//	}	
     
 	public void inorder(Node<T> root) {
 		inorderHelper(root);
@@ -131,20 +150,21 @@ public class BalancedTreap<T extends Comparable<T>> {
 		
 		BalancedTreap<Integer> t = new BalancedTreap<>();
 		
-		for (int i = 0; i < 10; i++)
+		for (int i = 0; i < 10; i++) {
+			root = t.insert(root, i);
+		}
+		
+		t.inorder(root);
+		
+		for (int i = 30; i >= 20; i--)
 			root = t.insert(root, i);
 		
 		t.inorder(root);
 		
-//		for (int i = 30; i >= 20; i--)
-//			root = t.insert(root, i);
-//		
-//		t.inorder(root);
-//		
-//		BalancedTreap<Integer> testSpeed = new BalancedTreap<>();
-//		for (int i = 0; i <= 1e7; i++) {
-//			testSpeed.insert(root, i);
-//		}
+		BalancedTreap<Integer> testSpeed = new BalancedTreap<>();
+		for (int i = 0; i <= 1e7; i++) {
+			testSpeed.insert(root, i);
+		}
 	
 	}
 }
