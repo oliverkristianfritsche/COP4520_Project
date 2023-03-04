@@ -1,4 +1,7 @@
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.io.*;
 
 public class ParallelTreap<T extends Comparable<T>> {
@@ -6,7 +9,6 @@ public class ParallelTreap<T extends Comparable<T>> {
 	static final int THREAD_COUNT = 5;
 	static Random rng = new Random();
 	private ArrayDeque<Operation<T>> queue = new ArrayDeque<>();
-	private Thread[] threads;
 	
 	static class Operation<T> {
 		int op;
@@ -35,12 +37,19 @@ public class ParallelTreap<T extends Comparable<T>> {
 		T value;
 		int priority;
 		int size = 1;
-		
+		Node<T> parent = null;
+		MCSLock threadQueue = new MCSLock();
 		Node<T> left = null, right = null;
 		
 		public Node(T v) {
 			this.value = v;
 			this.priority = rng.nextInt();
+		}
+		
+		public Node(T v, Node<T> parent) {
+			this.value = v;
+			this.priority = rng.nextInt();
+			this.parent = parent;
 		}
 		
 		public static int size(Node root) {
@@ -54,25 +63,77 @@ public class ParallelTreap<T extends Comparable<T>> {
 		}
 	}
 	
-	public ParallelTreap() {
-		threads = new Thread[THREAD_COUNT];
-		
-		for (int i = 0; i < threads.length; i++) {
-			final int id = i;
-			threads[i] = new Thread(new Runnable() {
-				public void run() {
-					while (true) {
-						Operation<T> operation = poll();
-						if (operation == null) {
-							;
-						}
-						else if (operation.op == 0) {
-							insert(operation.nodeParam, operation.valueParam);
-						}
-					}
+	static class MCSLock {
+		AtomicReference<QNode> tail;
+		ThreadLocal<QNode> myNode;
+		public MCSLock() {
+			tail = new AtomicReference<QNode>(null);
+			myNode = new ThreadLocal<QNode>() {
+				protected QNode initialValue() {
+					return new QNode();
 				}
-			});
+			};
 		}
+
+		static class QNode {
+			AtomicBoolean locked = new AtomicBoolean();
+			QNode next = null;
+		}
+	
+		public void lock() {
+			QNode qnode = myNode.get();
+			QNode pred = tail.getAndSet(qnode);
+			if (pred != null) {
+				qnode.locked.set(true);
+				pred.next = qnode;
+				// wait until predecessor gives up the lock
+				while (qnode.locked.get()) {}
+			}
+		}
+		public void unlock() {
+			QNode qnode = myNode.get();
+			if (qnode.next == null) {
+				if (tail.compareAndSet(qnode, null))
+					return;
+				// wait until predecessor fills in its next field
+				while (qnode.next == null) {}
+			}
+			qnode.next.locked.set(false);
+			qnode.next = null;
+		}
+	}
+	
+	public Node<T> treapRoot;
+	AtomicInteger threadsInUse = new AtomicInteger(0);
+	int cnt = 0;
+	public synchronized Thread assignThread(T value) {
+		while (cnt >= THREAD_COUNT) {
+		
+		}
+		// threadsInUse.getAndIncrement();
+		cnt++;
+		return new Thread(new Runnable() {
+			public void run() {
+				try {
+					treapRoot = insert(treapRoot, value);
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}	
+			}
+		});
+	}	
+	
+	public synchronized void treapInsert(T value) throws InterruptedException {
+		Thread thread = assignThread(value);
+		thread.start();
+		
+		thread.join();
+		//Thread.sleep(20);
+	    //System.out.println("PRINTING " + value);
+		//inorder(this.treapRoot);
+//		threadsInUse.getAndDecrement();
+		cnt--;
 	}
 	
 	public boolean contains(Node<T> root, T value) {
@@ -90,24 +151,40 @@ public class ParallelTreap<T extends Comparable<T>> {
 	}
 	
 	public Node<T> leftRotation(Node<T> root) {
+		if (root.right == null)
+			return root;
 		Node<T> right = root.right;
 		Node<T> rightLeft = root.right.left;
 		right.left = root;
 		root.right = rightLeft;
+		
+		if (rightLeft != null)
+			rightLeft.parent = root;
+		right.parent = root.parent;
+		root.parent = right;
+		
 		return right;
 	}
  
  
 	public Node<T> rightRotation(Node<T> root) {
+		if (root.left == null)
+			return root;
 		Node<T> left = root.left;
 		Node<T> leftRight = root.left.right;
 		left.right = root;
 		root.left = leftRight;
+		
+		if (leftRight != null)
+			leftRight.parent = root;
+		left.parent = root.parent;
+		root.parent = left;
+		
 		return left;
 	}
 	
 	
-	public Node<T> insert(Node<T> root, T value) {
+	public Node<T> insert(Node<T> root, T value) throws InterruptedException {
 		Node<T> temp = root;
 		
 		if (temp == null) {
@@ -123,11 +200,12 @@ public class ParallelTreap<T extends Comparable<T>> {
 				temp = temp.left;
 				stackOfLeftOrRightChild.push(0);
 			}
-			else if (value.compareTo(root.value) > 0){
+			else if (value.compareTo(temp.value) > 0){
 				temp = temp.right;
 				stackOfLeftOrRightChild.push(1);
 			}
 			else {
+				//System.out.println(value + " " + temp.value + " " + "returned?");
 				return root;
 			}
 		}
@@ -135,35 +213,44 @@ public class ParallelTreap<T extends Comparable<T>> {
 		int leftOrRightChild = 0;
 		Node<T> parent = null;		
 		Node<T> current = createNode(value);
+		//System.out.println(current.value + " STARTING PROCESS");
 		while (stackOfPath.size() > 0) {
 			parent = stackOfPath.pop();
-			
-			/*
-			 LockQueue<> waitingOnMe			 
-			 waitingOnMe.lock();
-			 
-			 // do your magic
-			 
-			 waitingOnMe.unlock()	
-			 */
+			current.parent = parent;
+						
+			current.threadQueue.lock();
+			Node<T> tempParent = current.parent;
+			tempParent.threadQueue.lock();
+			//System.out.println(tempParent.value);
 			
 			leftOrRightChild = stackOfLeftOrRightChild.pop();
 			if (leftOrRightChild == 0) {
 				parent.left = current;
+				Node<T> tempChild = current.right;
+				if (tempChild != null) tempChild.threadQueue.lock();
 				if (parent.left != null && parent.left.priority > parent.priority) {
 					parent = leftRotation(parent);
 				}
+				if (tempChild != null) tempChild.threadQueue.unlock();
 			}
 			else {
 				parent.right = current;
+				Node<T> tempChild = current.left;
+				if (tempChild != null) tempChild.threadQueue.lock();
 				if (parent.right != null && parent.right.priority > parent.priority) {
 					parent = rightRotation(parent);
 				}
+				if (tempChild != null) tempChild.threadQueue.unlock();
 			}
+			current.threadQueue.unlock();
+			tempParent.threadQueue.unlock();
+			
 			current = parent;
+			
 		}
-	
-		return root = parent;
+		//System.out.println(current.value + " ENDING PROCESS");
+		//Thread.sleep(30);
+		return root = current;
 	}
 	
 //	public Node<T> insert(Node<T> root, T value) {
@@ -201,18 +288,42 @@ public class ParallelTreap<T extends Comparable<T>> {
 		inorderHelper(root.right);
 	}
 	
+	public int height(Node<T> root) {
+		if (root == null) return 0;
+		return Math.max(height(root.left), height(root.right)) + 1;
+	}
+	
 	public Node<T> createNode(T value) {
 		return new Node(value);
 	}
 	
-	public static void main(String[] args) {
-		Node<Integer> root = null;
+	public static void main(String[] args) throws InterruptedException {
+//		Node<Integer> root = null;
+		long start = System.currentTimeMillis();
+		ParallelTreap<Integer> t = new ParallelTreap<>();
 		
-//		ParallelTreap<Integer> t = new ParallelTreap<>();
-//		
+		t.treapRoot = t.insert(t.treapRoot, 18);
+     	t.treapRoot = t.insert(t.treapRoot, 25);
+		t.treapRoot = t.insert(t.treapRoot, 23);
+		t.treapRoot = t.insert(t.treapRoot, 13);
+		
+		
+//		t.treapInsert(0);
+//		t.treapInsert(1);
 //		for (int i = 0; i < 10; i++)
-//			root = t.insert(root, i);
+//			t.treapInsert(i);
 //		
+		for (int i = 0; i < 5000; i++) {
+			//t.treapInsert(rng.nextInt());
+			 t.treapInsert(i);
+		}
+		System.out.println(t.height(t.treapRoot));
+		t.inorder(t.treapRoot);
+		//while (t.threadsInUse.get() > 0);
+		//t.inorder(t.treapRoot);
+
+		long end = System.currentTimeMillis();
+		System.out.println((end - start));
 //		t.inorder(root);
 //		
 //		for (int i = 30; i >= 20; i--)
@@ -220,10 +331,10 @@ public class ParallelTreap<T extends Comparable<T>> {
 //		
 //		t.inorder(root);
 //		
-		ParallelTreap<Integer> testSpeed = new ParallelTreap<>();
-		for (int i = 0; i <= 1e7; i++) {
-			root = testSpeed.insert(root, i);
-		}
+//		ParallelTreap<Integer> testSpeed = new ParallelTreap<>();
+//		for (int i = 0; i <= 1e7; i++) {
+//			root = testSpeed.insert(root, i);
+//		}
 		// testSpeed.inorder(root);
 	}
 }
