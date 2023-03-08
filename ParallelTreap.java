@@ -11,13 +11,12 @@ public class ParallelTreap<T extends Comparable<T>> {
 		ReentrantLock lock = new ReentrantLock();
 		T value;
 		int priority;
-		int size = 1;
 		Node<T> parent = null;
 		Node<T> left = null, right = null;
 		
 		public Node(T v) {
 			this.value = v;
-			this.priority = rng.nextInt();
+			this.priority = rng.nextInt() - 1;
 		}
 		
 		public Node(T v, Node<T> parent) {
@@ -26,18 +25,13 @@ public class ParallelTreap<T extends Comparable<T>> {
 			this.parent = parent;
 		}
 		
-		public static int size(Node root) {
-			return root == null ? 0 : root.size;
-		}
-		
-		public static void compute_size(Node root) {
-			if (root == null)
-				return;
-			root.size = size(root.left) + size(root.right) + 1;
+		public Node(T v, int priority) {
+			this.value = v;
+			this.priority = priority;
 		}
 	}
 		
-	public Node<T> treapRoot;
+	public Node<T> treapRoot = new Node(-1, Integer.MAX_VALUE);
 	
 	public boolean contains(Node<T> root, T value) {
 		if (root == null)
@@ -71,8 +65,7 @@ public class ParallelTreap<T extends Comparable<T>> {
 	
 	public Node<T> insert(Node<T> root, T value) throws InterruptedException {
 		Node<T> temp = root;
-		// if (root != null) System.out.println(root.value);
-		// System.out.println("STARTING INSERT: " + Thread.currentThread() + " " + value);
+
 		if (temp == null) {
 			return createNode(value);
 		}
@@ -82,9 +75,9 @@ public class ParallelTreap<T extends Comparable<T>> {
 		
 		Node<T> current = createNode(value);
 		Node<T> firstSubtreeToLock = null;
-		//System.out.println(Thread.currentThread() + " getting lock " +current.value);
+		
 		current.lock.lock();
-		// System.out.println(Thread.currentThread() + " lock gained" +current.value);
+		
 		while (temp != null) {
 			stackOfPath.push(temp);
 			if (firstSubtreeToLock == null)
@@ -93,9 +86,8 @@ public class ParallelTreap<T extends Comparable<T>> {
 				firstSubtreeToLock = temp;
 			}
 			
-			//System.out.println(Thread.currentThread() + " getting lock " +temp.value);
 			temp.lock.lock();
-			// System.out.println(Thread.currentThread() + " lock gained" +temp.value);
+			
 			if (value.compareTo(temp.value) < 0) {
 				temp = temp.left;
 				stackOfLeftOrRightChild.push(0);
@@ -109,12 +101,9 @@ public class ParallelTreap<T extends Comparable<T>> {
 			}
 		}
 		
-		// System.out.println(Thread.currentThread() + " special " + firstSubtreeToLock.value);
 		temp = root;
 		while (temp != firstSubtreeToLock) {
-			//System.out.println(Thread.currentThread() + " unlock first " + temp.value);
 			temp.lock.unlock();
-			// System.out.println(Thread.currentThread() + " lock released " +temp.value);
 			if (value.compareTo(temp.value) < 0) {
 				temp = temp.left;
 			}
@@ -150,7 +139,6 @@ public class ParallelTreap<T extends Comparable<T>> {
 		while (stackOfPath.size() > 0) {
 			parent = stackOfPath.pop();
 			current.parent = parent;
-			// System.out.println("CURRENT: " + current.value + " " + "PARENT: " + parent.value);
 			if (current == firstSubtreeToLock) {
 				flag = true;
 			}
@@ -158,35 +146,25 @@ public class ParallelTreap<T extends Comparable<T>> {
 				current = parent;
 				continue;
 			}
-//			synchronized(current) {
-				Node<T> tempParent = current.parent;
-//				synchronized(tempParent) {
-					leftOrRightChild = stackOfLeftOrRightChild.pop();
-					if (leftOrRightChild == 0) {
-						parent.left = current;
-						if (parent.left != null && parent.left.priority > parent.priority) {
-							parent = rightRotation(parent);
-						}	
-					}
-					else {
-						parent.right = current;
-						if (parent.right != null && parent.right.priority > parent.priority) {
-							parent = leftRotation(parent);
-						}
-					}
-//				}
-//			}			
-			//System.out.println(Thread.currentThread() + " unlock second " + current.value);
-
-			//System.out.println(Thread.currentThread() + " unlock second complelte" + current.value);
+			leftOrRightChild = stackOfLeftOrRightChild.pop();
+			if (leftOrRightChild == 0) {
+				parent.left = current;
+				if (parent.left != null && parent.left.priority > parent.priority) {
+					parent = rightRotation(parent);
+				}	
+			}
+			else {
+				parent.right = current;
+				if (parent.right != null && parent.right.priority > parent.priority) {
+					parent = leftRotation(parent);
+				}
+			}
 			current = parent;
-			//System.out.println("NEXT PARENT: " + current.value + " " + parent.value);
 		}
 		
 		while (remainPathUnlock.size() > 0) {
 			Node<T> val = remainPathUnlock.pop();
 			val.lock.unlock();
-			// System.out.println(Thread.currentThread() + " lock released " + val.value);
 		}
 		
 		return root = current;
@@ -219,22 +197,15 @@ public class ParallelTreap<T extends Comparable<T>> {
 		ParallelTreap<Integer> t = new ParallelTreap<>();
 				
 		Thread[] threads = new Thread[THREAD_COUNT];
-		
-		t.treapRoot = t.insert(t.treapRoot, -1);
-		t.treapRoot = t.insert(t.treapRoot, -2);
-		t.treapRoot = t.insert(t.treapRoot, -3);
-		t.treapRoot = t.insert(t.treapRoot, -4);
-		
+				
 		for (int index = 0; index < threads.length; index++) {
 			final int id = index;
 			threads[index] = new Thread(new Runnable() {
 				public void run() {
 					for (Integer i = id; i < SIZE; i += threads.length)
 						try {
-							//System.out.println("THREAD WITH ID: " + id + " inserting " + i);
 							t.treapRoot = t.insert(t.treapRoot, i);
 						} catch (InterruptedException e) {
-							// TODO Auto-generated catch block
 							e.printStackTrace();
 						}
 				}
