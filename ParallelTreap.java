@@ -55,7 +55,7 @@ public class ParallelTreap<T extends Comparable<T>> {
 		return right;
 	}
      
-    public Node<T> rightRotation(Node<T> root) {
+	public Node<T> rightRotation(Node<T> root) {
 		Node<T> left = root.left;
 		Node<T> leftRight = root.left.right;
 		left.right = root;
