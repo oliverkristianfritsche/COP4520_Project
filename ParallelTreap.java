@@ -239,7 +239,7 @@ public class ParallelTreap<T extends Comparable<T>> {
 		return new Node(value);
 	}
 
-	public String evalute(int nThreads,int nElements,String method, String implementation,int nRuns, T[] vals) throws InterruptedException {
+	public String evalute(int nThreads,int nElements,String method,int nRuns, T[] vals) throws InterruptedException {
 		String text = "";
 		long startTime = 0;
 		long endTime = 0;
@@ -255,35 +255,8 @@ public class ParallelTreap<T extends Comparable<T>> {
 
 		for(int i =0; i < nRuns; i++){
 			this.treapRoot = new Node(-1, Integer.MAX_VALUE);
-			if(method.equals("insert") && implementation.equals("sequential")){
-				try{
-					startTime = System.nanoTime();
-					
-					for (Integer j = 0; j < nElements; j++)
-						try {
-							treapRoot = sequential_insert(treapRoot, vals[j]);
-						} catch (Exception g) {
-							g.printStackTrace();
-						}
-					endTime = System.nanoTime();
-					totalTime += endTime - startTime;
-					height = this.height(this.treapRoot);
-					totalHeight += height;
-					if(height > maxHeight){
-						maxHeight = height;
-					}
-					if(height < minHeight){
-						minHeight = height;
-					}
-					success++;
-					text += totalTime + " " + height + "\n";
-				}
-				catch(Exception e){
-					text += "-1 -1 -1 -1\n";
-				}
-				
-			}
-			else if(method.equals("insert") && implementation.equals("parallel")){
+			
+			if(method.equals("insert")){
 				try{
 					startTime = System.nanoTime();
 					
@@ -325,16 +298,10 @@ public class ParallelTreap<T extends Comparable<T>> {
 				}
 			
 			}
-			else if(method.equals("delete") && implementation.equals("sequential")){
+			else if(method.equals("delete")){
 				//todo
 			}
-			else if(method.equals("delete") && implementation.equals("parallel")){
-				//todo
-			}
-			else if(method.equals("contains") && implementation.equals("sequential")){
-				//todo
-			}
-			else if(method.equals("contains") && implementation.equals("parallel")){
+			else if(method.equals("contains")){
 				//todo
 			}
 			else{
@@ -364,30 +331,30 @@ public class ParallelTreap<T extends Comparable<T>> {
 			for (int i = 0; i < nThreads.length; i++) {
 				for (int j = 0; j < nElements.length; j++) {
 					for (int k = 0; k < methods.length; k++) {
-						for (int l = 0; l < implementations.length; l++) {
-							t= new ParallelTreap<Integer>();
-							vals = new Integer[nElements[j]];
-							for (int m = 0; m < nElements[j]; m++) {
-								vals[m] = m;
-							} 
-							filename = "./evaluation/data/"+nThreads[i] + "_" + nElements[j] + "_" + methods[k] + "_" + implementations[l] + ".txt";
+				
+						t= new ParallelTreap<Integer>();
+						vals = new Integer[nElements[j]];
+						for (int m = 0; m < nElements[j]; m++) {
+							vals[m] = m;
+						} 
+						filename = "./evaluation/data/"+nThreads[i] + "_" + nElements[j] + "_" + methods[k] + "_" + "parallel.txt";
+						try {
+							writer = new FileWriter(filename);
+							text = t.evalute(nThreads[i], nElements[j], methods[k],nRuns, vals);
+							writer.write(text);
+						} catch (IOException e) {
+							System.err.println("Error writing to "+filename+": " + e.getMessage());
+						} finally {
 							try {
-								writer = new FileWriter(filename);
-								text = t.evalute(nThreads[i], nElements[j], methods[k], implementations[l],nRuns, vals);
-								writer.write(text);
-							} catch (IOException e) {
-								System.err.println("Error writing to "+filename+": " + e.getMessage());
-							} finally {
-								try {
-									if (writer != null) {
-										writer.close();
-									}
-								} catch (IOException e) {
-									System.err.println("Error closing "+filename+": " + e.getMessage());
+								if (writer != null) {
+									writer.close();
 								}
+							} catch (IOException e) {
+								System.err.println("Error closing "+filename+": " + e.getMessage());
 							}
-							
 						}
+							
+						
 					}
 				}
 			}

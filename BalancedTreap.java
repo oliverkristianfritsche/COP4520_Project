@@ -9,11 +9,22 @@ public class BalancedTreap<T extends Comparable<T>> {
 		int priority;
 		int size = 1;
 		
-		Node<T> left = null, right = null;
+		Node<T> left = null, right = null,parent=null;
 		
 		public Node(T v) {
 			this.value = v;
 			this.priority = rng.nextInt();
+		}
+
+		public Node(T v, Node<T> parent) {
+			this.value = v;
+			this.priority = rng.nextInt();
+			this.parent = parent;
+		}
+		
+		public Node(T v, int priority) {
+			this.value = v;
+			this.priority = priority;
 		}
 		
 		public static int size(Node root) {
@@ -55,6 +66,11 @@ public class BalancedTreap<T extends Comparable<T>> {
 		left.right = root;
 		root.left = leftRight;
 		return left;
+	}
+
+	public int height(Node<T> root) {
+		if (root == null) return 0;
+		return Math.max(height(root.left), height(root.right)) + 1;
 	}
     
     public Node<T> insert(Node<T> root, T value) {
@@ -144,27 +160,130 @@ public class BalancedTreap<T extends Comparable<T>> {
 	public Node<T> createNode(T value) {
 		return new Node(value);
 	}
+
+	public String evalute(int nElements,String method,int nRuns, T[] vals) throws InterruptedException {
+		String text = "";
+		long startTime = 0;
+		long endTime = 0;
+		long totalTime = 0;
+		long averageTime = 0;
+		int height = 0;
+		int maxHeight = 0;
+		int minHeight = 0;
+		int averageHeight = 0;
+		int totalHeight = 0;
+		int success = 0;
+		Node<T> root;
+
+		for(int i =0; i < nRuns; i++){
+			root = new Node(-1, Integer.MAX_VALUE);
+			
+			if(method.equals("insert")){
+				try{
+					startTime = System.nanoTime();
+					
+					for(int j = 0; j < nElements; j++){
+						root = this.insert(root, vals[j]);
+					}
+			
+					endTime = System.nanoTime();
+					totalTime += endTime - startTime;
+					height = this.height(root);
+					totalHeight += height;
+					if(height > maxHeight){
+						maxHeight = height;
+					}
+					if(height < minHeight){
+						minHeight = height;
+					}
+					success++;
+					text += totalTime + " " + height + "\n";
+				}
+				catch(Exception e){
+					text += "-1 -1 -1 -1\n";
+				}
+			
+			}
+			else if(method.equals("delete")){
+				
+			}
+			else if(method.equals("contains")){
+				
+			}
+			else{
+				System.out.println("Invalid method or implementation");
+			}
+		}
+		averageTime = totalTime / success;
+		averageHeight = totalHeight / success;
+		return text;
+	}
 	
 	public static void main(String[] args) {
-		Node<Integer> root = null;
 		
-		BalancedTreap<Integer> t = new BalancedTreap<>();
+		boolean runEvaluation = true;
 		
-		for (int i = 0; i < 10; i++) {
-			root = t.insert(root, i);
+		if (runEvaluation) {
+			BalancedTreap<Integer> t;
+			int[] nElements = {100,1000,10000,100000, 1000000};
+			String[] methods = {"insert"};//, "delete", "contains"};
+			int nRuns = 10;
+			FileWriter writer= null;
+			String text;
+			String filename;
+			Integer[] vals;
+
+			
+			for (int j = 0; j < nElements.length; j++) {
+				for (int k = 0; k < methods.length; k++) {
+					
+						t= new BalancedTreap<Integer>();
+						vals = new Integer[nElements[j]];
+						for (int m = 0; m < nElements[j]; m++) {
+							vals[m] = m;
+						} 
+						filename = "./evaluation/data/"+nElements[j] + "_" + methods[k] + "_" +"parallel.txt";
+						try {
+							writer = new FileWriter(filename);
+							text = t.evalute(nElements[j], methods[k],nRuns, vals);
+							writer.write(text);
+						} catch (Exception e) {
+							System.err.println("Error writing to "+filename+": " + e.getMessage());
+						} finally {
+							try {
+								if (writer != null) {
+									writer.close();
+								}
+							} catch (Exception e) {
+								System.err.println("Error closing "+filename+": " + e.getMessage());
+							}
+						}
+						
+					}
+				}
+			}
+			
+		
+		else {
+			Node<Integer> root = null;
+			
+			BalancedTreap<Integer> t = new BalancedTreap<>();
+			
+			for (int i = 0; i < 10; i++) {
+				root = t.insert(root, i);
+			}
+			
+			t.inorder(root);
+			
+			for (int i = 30; i >= 20; i--)
+				root = t.insert(root, i);
+			
+			t.inorder(root);
+			
+			BalancedTreap<Integer> testSpeed = new BalancedTreap<>();
+			for (int i = 0; i <= 1e7; i++) {
+				testSpeed.insert(root, i);
+			}
 		}
-		
-		t.inorder(root);
-		
-		for (int i = 30; i >= 20; i--)
-			root = t.insert(root, i);
-		
-		t.inorder(root);
-		
-		BalancedTreap<Integer> testSpeed = new BalancedTreap<>();
-		for (int i = 0; i <= 1e7; i++) {
-			testSpeed.insert(root, i);
-		}
-	
 	}
 }
