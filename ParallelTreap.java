@@ -1,5 +1,7 @@
 import java.util.*;
 import java.util.concurrent.locks.ReentrantLock;
+import java.io.FileWriter;
+import java.io.IOException;
 
 public class ParallelTreap<T extends Comparable<T>> {
 	
@@ -114,6 +116,8 @@ public class ParallelTreap<T extends Comparable<T>> {
 				break;
 			}
 		}
+
+		
 		
 		ArrayDeque<Node<T>> remainPathUnlock = new ArrayDeque<>();
 		remainPathUnlock.add(current);
@@ -169,6 +173,49 @@ public class ParallelTreap<T extends Comparable<T>> {
 		
 		return root = current;
 	}
+
+	public Node<T> sequential_insert(Node<T> root,T value) {
+		Node<T> newNode = new Node<>(value);
+		Node<T> parent = null;
+		Node<T> current = treapRoot;
+
+		while (current != null) {
+			parent = current;
+			if (value.compareTo(current.value) < 0) {
+				current = current.left;
+			}
+			else if (value.compareTo(current.value) > 0){
+				current = current.right;
+			}
+			else {
+				return root;
+			}
+		}
+
+		newNode.parent = parent;
+		if (parent == null) {
+			root = newNode;
+		}
+		else if (value.compareTo(parent.value) < 0) {
+			parent.left = newNode;
+		}
+		else {
+			parent.right = newNode;
+		}
+
+		while (newNode != root && newNode.parent.priority > newNode.priority) {
+			if (newNode == newNode.parent.left) {
+				newNode = rightRotation(newNode.parent);
+			}
+			else {
+				newNode = leftRotation(newNode.parent);
+			}
+		}
+
+		
+		
+		return treapRoot;
+	}
 	
 	public void inorder(Node<T> root) {
 		inorderHelper(root);
@@ -191,39 +238,193 @@ public class ParallelTreap<T extends Comparable<T>> {
 	public Node<T> createNode(T value) {
 		return new Node(value);
 	}
-	
-	public static void main(String[] args) throws InterruptedException {
-		long start = System.currentTimeMillis();
-		ParallelTreap<Integer> t = new ParallelTreap<>();
-				
-		Thread[] threads = new Thread[THREAD_COUNT];
-				
-		for (int index = 0; index < threads.length; index++) {
-			final int id = index;
-			threads[index] = new Thread(new Runnable() {
-				public void run() {
-					for (Integer i = id; i < SIZE; i += threads.length)
+
+	public String evalute(int nThreads,int nElements,String method, String implementation,int nRuns, T[] vals) throws InterruptedException {
+		String text = "";
+		long startTime = 0;
+		long endTime = 0;
+		long totalTime = 0;
+		long averageTime = 0;
+		int height = 0;
+		int maxHeight = 0;
+		int minHeight = 0;
+		int averageHeight = 0;
+		int totalHeight = 0;
+		int success = 0;
+		Thread[] threads = new Thread[nThreads];
+
+		for(int i =0; i < nRuns; i++){
+			this.treapRoot = new Node(-1, Integer.MAX_VALUE);
+			if(method.equals("insert") && implementation.equals("sequential")){
+				try{
+					startTime = System.nanoTime();
+					
+					for (Integer j = 0; j < nElements; j++)
 						try {
-							t.treapRoot = t.insert(t.treapRoot, i);
-						} catch (InterruptedException e) {
-							e.printStackTrace();
+							treapRoot = sequential_insert(treapRoot, vals[j]);
+						} catch (Exception g) {
+							g.printStackTrace();
 						}
+					endTime = System.nanoTime();
+					totalTime += endTime - startTime;
+					height = this.height(this.treapRoot);
+					totalHeight += height;
+					if(height > maxHeight){
+						maxHeight = height;
+					}
+					if(height < minHeight){
+						minHeight = height;
+					}
+					success++;
+					text += totalTime + " " + height + "\n";
 				}
-			});;
-		}
-			
-		for (int index = 0; index < threads.length; index++) {
-			threads[index].start();
-		}
-		
-		for (int index = 0; index < threads.length; index++) {
-			threads[index].join();
-		}
+				catch(Exception e){
+					text += "-1 -1 -1 -1\n";
+				}
 				
-		System.out.println("Height: " + t.height(t.treapRoot));
+			}
+			else if(method.equals("insert") && implementation.equals("parallel")){
+				try{
+					startTime = System.nanoTime();
+					
+					for (int index = 0; index < threads.length; index++) {
+							final int id = index;
+							threads[index] = new Thread(new Runnable() {
+								public void run() {
+									for (Integer j = id; j < nElements; j += threads.length)
+										try {
+											treapRoot = insert(treapRoot, vals[j]);
+										} catch (Exception g) {
+											g.printStackTrace();
+										}
+								}
+							});;
+						}
+					for (int index = 0; index < threads.length; index++) {
+						threads[index].start();
+					}
+					
+					for (int index = 0; index < threads.length; index++) {
+						threads[index].join();
+					}
+					endTime = System.nanoTime();
+					totalTime += endTime - startTime;
+					height = this.height(this.treapRoot);
+					totalHeight += height;
+					if(height > maxHeight){
+						maxHeight = height;
+					}
+					if(height < minHeight){
+						minHeight = height;
+					}
+					success++;
+					text += totalTime + " " + height + "\n";
+				}
+				catch(Exception e){
+					text += "-1 -1 -1 -1\n";
+				}
+			
+			}
+			else if(method.equals("delete") && implementation.equals("sequential")){
+				//todo
+			}
+			else if(method.equals("delete") && implementation.equals("parallel")){
+				//todo
+			}
+			else if(method.equals("contains") && implementation.equals("sequential")){
+				//todo
+			}
+			else if(method.equals("contains") && implementation.equals("parallel")){
+				//todo
+			}
+			else{
+				System.out.println("Invalid method or implementation");
+			}
+		}
+		averageTime = totalTime / success;
+		averageHeight = totalHeight / success;
+		return text;
+	}
+
+	public static void main(String[] args) throws InterruptedException {
+		boolean runEvaluation = true;
 		
-		long end = System.currentTimeMillis();
-		System.out.println((end - start));
+		if (runEvaluation) {
+			ParallelTreap<Integer> t;
+			int[] nThreads = {1,2,4,6,8};
+			int[] nElements = {100,1000,10000,100000, 1000000};
+			String[] methods = {"insert"};//, "delete", "contains"};
+			String[] implementations = {"parallel"};//, "sequential"};
+			int nRuns = 10;
+			FileWriter writer= null;
+			String text;
+			String filename;
+			Integer[] vals;
+
+			for (int i = 0; i < nThreads.length; i++) {
+				for (int j = 0; j < nElements.length; j++) {
+					for (int k = 0; k < methods.length; k++) {
+						for (int l = 0; l < implementations.length; l++) {
+							t= new ParallelTreap<Integer>();
+							vals = new Integer[nElements[j]];
+							for (int m = 0; m < nElements[j]; m++) {
+								vals[m] = m;
+							} 
+							filename = "./evaluation/data/"+nThreads[i] + "_" + nElements[j] + "_" + methods[k] + "_" + implementations[l] + ".txt";
+							try {
+								writer = new FileWriter(filename);
+								text = t.evalute(nThreads[i], nElements[j], methods[k], implementations[l],nRuns, vals);
+								writer.write(text);
+							} catch (IOException e) {
+								System.err.println("Error writing to "+filename+": " + e.getMessage());
+							} finally {
+								try {
+									if (writer != null) {
+										writer.close();
+									}
+								} catch (IOException e) {
+									System.err.println("Error closing "+filename+": " + e.getMessage());
+								}
+							}
+							
+						}
+					}
+				}
+			}
+		}
+		else {
+			long start = System.currentTimeMillis();
+			ParallelTreap<Integer> t = new ParallelTreap<>();
+					
+			Thread[] threads = new Thread[THREAD_COUNT];
+					
+			for (int index = 0; index < threads.length; index++) {
+				final int id = index;
+				threads[index] = new Thread(new Runnable() {
+					public void run() {
+						for (Integer i = id; i < SIZE; i += threads.length)
+							try {
+								t.treapRoot = t.insert(t.treapRoot, i);
+							} catch (InterruptedException e) {
+								e.printStackTrace();
+							}
+					}
+				});;
+			}
+				
+			for (int index = 0; index < threads.length; index++) {
+				threads[index].start();
+			}
+			
+			for (int index = 0; index < threads.length; index++) {
+				threads[index].join();
+			}
+					
+			System.out.println("Height: " + t.height(t.treapRoot));
+			
+			long end = System.currentTimeMillis();
+			System.out.println((end - start));
 		// t.inorder(t.treapRoot);
+		}
 	}
 }
