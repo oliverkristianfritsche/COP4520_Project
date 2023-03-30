@@ -174,47 +174,206 @@ public class ParallelTreap<T extends Comparable<T>> {
 		return root = current;
 	}
 
-	public Node<T> sequential_insert(Node<T> root,T value) {
-		Node<T> newNode = new Node<>(value);
-		Node<T> parent = null;
-		Node<T> current = treapRoot;
+	public int nChildren(Node<T> root) {
+		int count = 0;
+		if (root.left != null)
+			count++;
+		if (root.right != null)
+			count++;
+		return count;
+	}
 
-		while (current != null) {
-			parent = current;
-			if (value.compareTo(current.value) < 0) {
-				current = current.left;
+	public void lockSubtree(Node<T> root, boolean toLock) throws InterruptedException {
+		if (root == null) {
+			return;
+		}
+		if (toLock) {
+			if (root.lock.tryLock()) {
+				lockSubtree(root.left, true);
+				lockSubtree(root.right, true);
+			} else {
+				root.lock.lockInterruptibly();  // acquire the lock, potentially blocking the thread
+				lockSubtree(root.left, true);   // now that we have the lock, lock the subtrees
+				lockSubtree(root.right, true);
 			}
-			else if (value.compareTo(current.value) > 0){
+		} else {
+			root.lock.unlock();               // unlock the current node
+			lockSubtree(root.left, false);    // unlock the subtrees
+			lockSubtree(root.right, false);
+		}
+	}
+
+	// public Node<T> delete(Node<T> root, T toDelete) throws InterruptedException {
+		
+	// 	Node<T> temp = root;
+
+	// 	if (temp == null) {
+	// 		System.out.println('n');
+	// 		return temp;
+	// 	}
+		
+	// 	while(temp != null){
+	// 		temp.lock.lock();
+	// 		if(toDelete.compareTo(temp.value)==0){
+	// 			break;
+	// 		}
+	// 		if(toDelete.compareTo(temp.value) > 0){
+	// 			// temp.lock.unlock();
+	// 			temp = temp.right;
+	// 		}
+	// 		else{
+	// 			// temp.lock.unlock();
+	// 			temp = temp.left;
+	// 		}
+	// 	}
+	// 	if (temp == null) {
+	// 		System.out.println('n');
+	// 		return root;
+	// 	}
+		
+	
+	// 	//lock all self and subtrees
+	// 	//lockSubtree(temp,true);//(node, 0:unlock 1:lock)
+		
+	// 	while(nChildren(temp) > 1){
+	// 		if(temp.right.priority > temp.left.priority){
+	// 			leftRotation(temp);
+	// 			// temp.parent.lock.unlock();
+	// 			//lockSubtree(temp.parent.right,false);
+	// 		}
+	// 		else{
+	// 			rightRotation(temp);
+	// 			//temp.parent.lock.unlock();
+	// 			// lockSubtree(temp.parent.left,false);
+	// 		}
+	// 	}
+	// 	System.out.println(temp.value + "  " + toDelete);
+	// 	if(temp.parent.right == temp){
+	// 		if (temp.right != null){
+	// 			temp.parent.right = temp.right;
+	// 			// temp.parent.lock.unlock();
+	// 		}
+	// 		else{
+	// 			temp.parent.right = temp.left;
+	// 			// temp.parent.lock.unlock();
+	// 		}
+	// 	}
+	// 	else{
+	// 		if (temp.right != null){
+	// 			temp.parent.left = temp.right;
+	// 			// temp.parent.lock.unlock();
+	// 		}
+	// 		else{
+	// 			temp.parent.left = temp.left;
+	// 			// temp.parent.lock.unlock();
+	// 		}
+	// 	}
+		
+	// 	return root;
+	// }
+	
+	// public Node<T> delete(Node<T> root, T toDelete) throws InterruptedException {
+	// 	Node<T> parent = null;
+	// 	Node<T> current = root;
+	
+	// 	// Find the node to delete
+		
+	// 	while (current != null && !current.value.equals(toDelete)) {
+	// 		parent = current;
+	// 		if (toDelete.compareTo(current.value) < 0) {
+				
+	// 			current = current.left;
+	// 		} else {
+			
+	// 			current = current.right;
+	// 		}
+	// 	}
+	
+	// 	// Node not found
+	// 	if (current == null) {
+	// 		return root;
+	// 	}
+	// 	lockSubtree(current,true);
+	// 	// If the node has two children, swap it with the node that has the smallest priority in its right subtree
+	// 	while (current.left != null && current.right != null) {
+	// 		if (current.left.priority < current.right.priority) {
+	// 			current = rightRotation(current);
+	// 			current.parent.lock.unlock();
+	// 			lockSubtree(current.parent.left,false);
+	// 		} else {
+	// 			current = leftRotation(current);
+	// 			current.parent.lock.unlock();
+	// 			lockSubtree(current.parent.right,false);
+	// 		}
+	// 		if (parent == null) {
+	// 			root = current;
+	// 		} else if (parent.left == current.right) {
+	// 			parent.left = current;
+	// 		} else {
+	// 			parent.right = current;
+	// 		}
+	// 		// lockSubtree(parent,false);
+	// 		parent = current;
+	// 	}
+	
+	// 	// Delete the node
+	// 	Node<T> child;
+	// 	if (current.left != null) {
+	// 		child = current.left;
+	// 	} else {
+	// 		child = current.right;
+	// 	}
+	// 	if (parent == null) {
+	// 		root = child;
+	// 	} else if (parent.left == current) {
+	// 		parent.left = child;
+	// 	} else {
+	// 		parent.right = child;
+	// 	}
+	
+	// 	return root;
+	// }
+	
+	public Node<T> delete(Node<T> root, T toDelete) throws InterruptedException {
+		Node<T> parent = null;
+		Node<T> current = root;
+		
+		// Find the node to delete
+		
+		while (current != null && !current.value.equals(toDelete)) {
+			parent = current;
+			if (toDelete.compareTo(current.value) < 0) {
+				current = current.left;
+			} else {
 				current = current.right;
 			}
-			else {
-				return root;
-			}
 		}
-
-		newNode.parent = parent;
+		
+		// Node not found
+		if (current == null) {
+			return root;
+		}
+		
+		lockSubtree(current, true);
+		
+		// Delete the node
+		Node<T> child;
+		if (current.left != null) {
+			child = current.left;
+		} else {
+			child = current.right;
+		}
 		if (parent == null) {
-			root = newNode;
+			root = child;
+		} else if (parent.left == current) {
+			parent.left = child;
+		} else {
+			parent.right = child;
 		}
-		else if (value.compareTo(parent.value) < 0) {
-			parent.left = newNode;
-		}
-		else {
-			parent.right = newNode;
-		}
-
-		while (newNode != root && newNode.parent.priority > newNode.priority) {
-			if (newNode == newNode.parent.left) {
-				newNode = rightRotation(newNode.parent);
-			}
-			else {
-				newNode = leftRotation(newNode.parent);
-			}
-		}
-
 		
+		lockSubtree(current, false);
 		
-		return treapRoot;
+		return root;
 	}
 	
 	public void inorder(Node<T> root) {
@@ -294,12 +453,53 @@ public class ParallelTreap<T extends Comparable<T>> {
 					text += totalTime + " " + height + "\n";
 				}
 				catch(Exception e){
-					text += "-1 -1 -1 -1\n";
+					text += "-1 -1\n";
 				}
 			
 			}
 			else if(method.equals("delete")){
-				//todo
+				
+				try{
+					for(int j = 0; j < nElements; j++){
+						treapRoot = insert(treapRoot, vals[j]);
+					}
+					startTime = System.nanoTime();
+					for (int index = 0; index < threads.length; index++) {
+							final int id = index;
+							threads[index] = new Thread(new Runnable() {
+								public void run() {
+									for (Integer j = id; j < nElements; j += threads.length)
+										try {
+											treapRoot = delete(treapRoot, vals[j]);
+										} catch (Exception g) {
+											g.printStackTrace();
+										}
+								}
+							});;
+						}
+					for (int index = 0; index < threads.length; index++) {
+						threads[index].start();
+					}
+					
+					for (int index = 0; index < threads.length; index++) {
+						threads[index].join();
+					}
+					endTime = System.nanoTime();
+					totalTime += endTime - startTime;
+					height = this.height(this.treapRoot);
+					totalHeight += height;
+					if(height > maxHeight){
+						maxHeight = height;
+					}
+					if(height < minHeight){
+						minHeight = height;
+					}
+					success++;
+					text += totalTime + " " + height + "\n";
+				}
+				catch(Exception e){
+					text += "-1 -1\n";
+				}
 			}
 			else if(method.equals("contains")){
 				//todo
@@ -318,11 +518,11 @@ public class ParallelTreap<T extends Comparable<T>> {
 		
 		if (runEvaluation) {
 			ParallelTreap<Integer> t;
-			int[] nThreads = {1,2,4,6,8};
-			int[] nElements = {100,1000,10000,100000, 1000000};
-			String[] methods = {"insert"};//, "delete", "contains"};
+			int[] nThreads = {1,2,6,8};
+			int[] nElements = {10,1000,10000,100000};
+			String[] methods = {"delete"};//, "delete", "contains"};
 			String[] implementations = {"parallel"};//, "sequential"};
-			int nRuns = 10;
+			int nRuns = 3;
 			FileWriter writer= null;
 			String text;
 			String filename;
