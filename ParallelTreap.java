@@ -53,29 +53,9 @@ public class ParallelTreap<T extends Comparable<T>> {
 		}
 	}
 	
-	public Node<T> leftRotation(Node<T> root) {
-		Node<T> right = root.right;
-		Node<T> rightLeft = root.right.left;
-		right.left = root;
-		root.right = rightLeft;
-		return right;
-	}
-     
-	public Node<T> rightRotation(Node<T> root) {
-		Node<T> left = root.left;
-		Node<T> leftRight = root.left.right;
-		left.right = root;
-		root.left = leftRight;
-		return left;
-	}
-
 	public Node<T> DleftRotation(Node<T> root) {
 		Node<T> right = root.right;
 		Node<T> rightLeft = root.right.left;
-		// System.out.println("DleftRotation");
-		// System.out.println("rightLeft: " + rightLeft);
-		// System.out.println("right: " + right);
-		// System.out.println("root: " + root);
 		right.left = root;
 		root.right = rightLeft;
 		
@@ -88,21 +68,13 @@ public class ParallelTreap<T extends Comparable<T>> {
 		root.parent = right;
 		if(rightLeft != null)
 			rightLeft.parent = root;
-		
-		// System.out.println("rightLeft: " + rightLeft);
-		// System.out.println("right: " + right);
-		// System.out.println("root: " + root);
-			
+					
 		return right;
 	}
      
 	public Node<T> DrightRotation(Node<T> root) {
 		Node<T> left = root.left;
 		Node<T> leftRight = root.left.right;
-		// System.out.println("DrightRotation");
-		// System.out.println("leftRight: " + leftRight);
-		// System.out.println("left: " + left);
-		// System.out.println("root: " + root);
 		left.right = root;
 		root.left = leftRight;
 		if(root.value.compareTo(root.parent.value) < 0){
@@ -114,15 +86,10 @@ public class ParallelTreap<T extends Comparable<T>> {
 		root.parent = left;
 		if(leftRight != null)
 			leftRight.parent = root;
-		
-		// System.out.println("leftRight: " + leftRight);
-		// System.out.println("left: " + left);
-		// System.out.println("root: " + root);
+	
 		return left;
 	}
 
-	
-	
 	public Node<T> insert(Node<T> root, T value) throws InterruptedException {
 		Node<T> temp = root;
 
@@ -175,8 +142,6 @@ public class ParallelTreap<T extends Comparable<T>> {
 			}
 		}
 
-		
-		
 		ArrayDeque<Node<T>> remainPathUnlock = new ArrayDeque<>();
 		remainPathUnlock.add(current);
 		temp = firstSubtreeToLock;
@@ -195,8 +160,7 @@ public class ParallelTreap<T extends Comparable<T>> {
 					
 		int leftOrRightChild = 0;
 		Node<T> parent = null;		
-		
-		
+	
 		boolean flag = false;
 		while (stackOfPath.size() > 0) {
 			parent = stackOfPath.pop();
@@ -241,35 +205,19 @@ public class ParallelTreap<T extends Comparable<T>> {
 		return count;
 	}
 
-	
-	
 	public synchronized Node<T> delete(Node<T> root, T toDelete) throws InterruptedException {
-
-		
 		Node<T> current = root;
 		Node<T> oldParent = null;
-		// inorder(current);
-		// System.out.println(root);
-		// Find the node to delete
 		while (current != null && !current.value.equals(toDelete)) {
-			
 			if ((current.left != null && current.left.value.equals(toDelete)) || 
 				(current.right != null && current.right.value.equals(toDelete))){
-				// Lock the child node's lock
-			
-				//oldParent.lock.lock();
 				if (toDelete.compareTo(current.value) < 0) {
-					
 					current = current.left;
-					
 				} else {
-					
 					current = current.right;
-					
 				}
 				break;
 			} else {
-				// Move to the next node without locking
 				if (toDelete.compareTo(current.value) < 0) {
 					current = current.left;
 				} else {
@@ -277,35 +225,23 @@ public class ParallelTreap<T extends Comparable<T>> {
 				}
 			}
 		}
-		// System.out.println(current.value + " " +toDelete + "values");
-		// Node not found
+		
 		if (current == null) {
 			return root;
 		}
 		oldParent = current.parent;
 		oldParent.lock.lock();
-		
-		// System.out.println(current + " " +toDelete + "values1");
-		
+				
 		while (current.left != null && current.right != null) {
 		
 			if (current.left.priority < current.right.priority) {
 				DleftRotation(current);
-				
-				//System.out.println(current.value + " " +toDelete);
-				//oldparent.lock.unlock();
 			} else {
 				DrightRotation(current);
-				//System.out.println(current.value + " " +toDelete);
-				//oldparent.lock.unlock();
 			}
 		
 		}
 		Node<T> parent = current.parent;
-		// System.out.println(parent.value +" pvalues");
-		// System.out.println(current.value + " " +toDelete +" valuesPRot");
-		
-		// Delete the node
 		Node<T> child;
 		if (current.left != null) {
 			child = current.left;
@@ -313,9 +249,7 @@ public class ParallelTreap<T extends Comparable<T>> {
 			child = current.right;
 			
 		}
-		if(child != null){
-			// System.out.println(child.value + "cValues");
-		}
+		
 		if (parent.left == current) {
 			parent.left = child;
 			if(child != null)
@@ -325,15 +259,10 @@ public class ParallelTreap<T extends Comparable<T>> {
 			if(child != null)
 				child.parent = parent;
 		}
-		//oldParent.lock.unlock();
-		// System.out.println(parent);
-		// System.out.println(child);
-		// System.out.println(current);
+		
 		oldParent.lock.unlock();
 		return root;
 	}
-	
-	
 	
 	public void inorder(Node<T> root) {
 		inorderHelper(root);
@@ -422,8 +351,6 @@ public class ParallelTreap<T extends Comparable<T>> {
 					for(int j = 0; j < nElements; j++){
 						treapRoot = insert(treapRoot, vals[j]);
 					}
-					// inorder(treapRoot);
-					// System.out.println("Pre delete");
 					startTime = System.nanoTime();
 					for (int index = 0; index < threads.length; index++) {
 							final int id = index;
@@ -431,15 +358,10 @@ public class ParallelTreap<T extends Comparable<T>> {
 								public void run() {
 									for (Integer j = id; j < nElements; j += threads.length)
 										try {
-											treapRoot = delete(treapRoot, vals[j]);
-											
-											// inorder(treapRoot);
-											
+											treapRoot = delete(treapRoot, vals[j]);											
 										} catch (Exception g) {
 											g.printStackTrace();
-										}
-									// System.out.println("post delete");
-									
+										}									
 								}
 								
 							});;
@@ -474,8 +396,6 @@ public class ParallelTreap<T extends Comparable<T>> {
 					for(int j = 0; j < nElements/2; j++){
 						treapRoot = insert(treapRoot, vals[j]);
 					}
-					// inorder(treapRoot);
-					// System.out.println("Pre delete");
 					startTime = System.nanoTime();
 					for (int index = 0; index < threads.length; index++) {
 							final int id = index;
@@ -484,14 +404,10 @@ public class ParallelTreap<T extends Comparable<T>> {
 									for (Integer j = id; j < nElements; j += threads.length)
 										try {
 											treapRoot = delete(treapRoot, vals[j]);
-											treapRoot = insert(treapRoot,vals2[j]);
-											// inorder(treapRoot);
-											
+											treapRoot = insert(treapRoot,vals2[j]);											
 										} catch (Exception g) {
 											g.printStackTrace();
-										}
-									// System.out.println("post delete");
-									
+										}									
 								}
 								
 							});;
@@ -611,7 +527,6 @@ public class ParallelTreap<T extends Comparable<T>> {
 			
 			long end = System.currentTimeMillis();
 			System.out.println((end - start));
-		// t.inorder(t.treapRoot);
 		}
 	}
 }
