@@ -31,6 +31,10 @@ public class ParallelTreap<T extends Comparable<T>> {
 			this.value = v;
 			this.priority = priority;
 		}
+
+		public String toString() {
+			return this.value + " " + (this.left == null ? "null" : this.left.value) + " " + (this.right == null ? "null" : this.right.value) + " " + (this.parent == null ? "null" : this.parent.value);
+		}
 	}
 		
 	public Node<T> treapRoot = new Node(-1, Integer.MAX_VALUE);
@@ -64,6 +68,60 @@ public class ParallelTreap<T extends Comparable<T>> {
 		root.left = leftRight;
 		return left;
 	}
+
+	public Node<T> DleftRotation(Node<T> root) {
+		Node<T> right = root.right;
+		Node<T> rightLeft = root.right.left;
+		// System.out.println("DleftRotation");
+		// System.out.println("rightLeft: " + rightLeft);
+		// System.out.println("right: " + right);
+		// System.out.println("root: " + root);
+		right.left = root;
+		root.right = rightLeft;
+		
+		if(root.value.compareTo(root.parent.value) < 0){
+			root.parent.left = right;
+		}else if(root.value.compareTo(root.parent.value) > 0){
+			root.parent.right = right;
+		}
+		right.parent = root.parent;
+		root.parent = right;
+		if(rightLeft != null)
+			rightLeft.parent = root;
+		
+		// System.out.println("rightLeft: " + rightLeft);
+		// System.out.println("right: " + right);
+		// System.out.println("root: " + root);
+			
+		return right;
+	}
+     
+	public Node<T> DrightRotation(Node<T> root) {
+		Node<T> left = root.left;
+		Node<T> leftRight = root.left.right;
+		// System.out.println("DrightRotation");
+		// System.out.println("leftRight: " + leftRight);
+		// System.out.println("left: " + left);
+		// System.out.println("root: " + root);
+		left.right = root;
+		root.left = leftRight;
+		if(root.value.compareTo(root.parent.value) < 0){
+			root.parent.left = left;
+		}else if(root.value.compareTo(root.parent.value) > 0){
+			root.parent.right = left;
+		}
+		left.parent = root.parent;
+		root.parent = left;
+		if(leftRight != null)
+			leftRight.parent = root;
+		
+		// System.out.println("leftRight: " + leftRight);
+		// System.out.println("left: " + left);
+		// System.out.println("root: " + root);
+		return left;
+	}
+
+	
 	
 	public Node<T> insert(Node<T> root, T value) throws InterruptedException {
 		Node<T> temp = root;
@@ -154,13 +212,13 @@ public class ParallelTreap<T extends Comparable<T>> {
 			if (leftOrRightChild == 0) {
 				parent.left = current;
 				if (parent.left != null && parent.left.priority > parent.priority) {
-					parent = rightRotation(parent);
+					parent = DrightRotation(parent);
 				}	
 			}
 			else {
 				parent.right = current;
 				if (parent.right != null && parent.right.priority > parent.priority) {
-					parent = leftRotation(parent);
+					parent = DleftRotation(parent);
 				}
 			}
 			current = parent;
@@ -174,48 +232,108 @@ public class ParallelTreap<T extends Comparable<T>> {
 		return root = current;
 	}
 
-	public Node<T> sequential_insert(Node<T> root,T value) {
-		Node<T> newNode = new Node<>(value);
-		Node<T> parent = null;
-		Node<T> current = treapRoot;
-
-		while (current != null) {
-			parent = current;
-			if (value.compareTo(current.value) < 0) {
-				current = current.left;
-			}
-			else if (value.compareTo(current.value) > 0){
-				current = current.right;
-			}
-			else {
-				return root;
-			}
-		}
-
-		newNode.parent = parent;
-		if (parent == null) {
-			root = newNode;
-		}
-		else if (value.compareTo(parent.value) < 0) {
-			parent.left = newNode;
-		}
-		else {
-			parent.right = newNode;
-		}
-
-		while (newNode != root && newNode.parent.priority > newNode.priority) {
-			if (newNode == newNode.parent.left) {
-				newNode = rightRotation(newNode.parent);
-			}
-			else {
-				newNode = leftRotation(newNode.parent);
-			}
-		}
-
-		
-		
-		return treapRoot;
+	public int nChildren(Node<T> root) {
+		int count = 0;
+		if (root.left != null)
+			count++;
+		if (root.right != null)
+			count++;
+		return count;
 	}
+
+	
+	
+	public synchronized Node<T> delete(Node<T> root, T toDelete) throws InterruptedException {
+
+		
+		Node<T> current = root;
+		Node<T> oldParent = null;
+		// inorder(current);
+		// System.out.println(root);
+		// Find the node to delete
+		while (current != null && !current.value.equals(toDelete)) {
+			
+			if ((current.left != null && current.left.value.equals(toDelete)) || 
+				(current.right != null && current.right.value.equals(toDelete))){
+				// Lock the child node's lock
+			
+				//oldParent.lock.lock();
+				if (toDelete.compareTo(current.value) < 0) {
+					
+					current = current.left;
+					
+				} else {
+					
+					current = current.right;
+					
+				}
+				break;
+			} else {
+				// Move to the next node without locking
+				if (toDelete.compareTo(current.value) < 0) {
+					current = current.left;
+				} else {
+					current = current.right;
+				}
+			}
+		}
+		// System.out.println(current.value + " " +toDelete + "values");
+		// Node not found
+		if (current == null) {
+			return root;
+		}
+		oldParent = current.parent;
+		oldParent.lock.lock();
+		
+		// System.out.println(current + " " +toDelete + "values1");
+		
+		while (current.left != null && current.right != null) {
+		
+			if (current.left.priority < current.right.priority) {
+				DleftRotation(current);
+				
+				//System.out.println(current.value + " " +toDelete);
+				//oldparent.lock.unlock();
+			} else {
+				DrightRotation(current);
+				//System.out.println(current.value + " " +toDelete);
+				//oldparent.lock.unlock();
+			}
+		
+		}
+		Node<T> parent = current.parent;
+		// System.out.println(parent.value +" pvalues");
+		// System.out.println(current.value + " " +toDelete +" valuesPRot");
+		
+		// Delete the node
+		Node<T> child;
+		if (current.left != null) {
+			child = current.left;
+		} else {
+			child = current.right;
+			
+		}
+		if(child != null){
+			// System.out.println(child.value + "cValues");
+		}
+		if (parent.left == current) {
+			parent.left = child;
+			if(child != null)
+				child.parent = parent;
+		} else {
+			parent.right = child;
+			if(child != null)
+				child.parent = parent;
+		}
+		//oldParent.lock.unlock();
+		// System.out.println(parent);
+		// System.out.println(child);
+		// System.out.println(current);
+		oldParent.lock.unlock();
+		return root;
+	}
+	
+	
 	
 	public void inorder(Node<T> root) {
 		inorderHelper(root);
@@ -239,7 +357,7 @@ public class ParallelTreap<T extends Comparable<T>> {
 		return new Node(value);
 	}
 
-	public String evalute(int nThreads,int nElements,String method,int nRuns, T[] vals) throws InterruptedException {
+	public String evalute(int nThreads,int nElements,String method,int nRuns, T[] vals,T[] vals2) throws InterruptedException {
 		String text = "";
 		long startTime = 0;
 		long endTime = 0;
@@ -294,15 +412,114 @@ public class ParallelTreap<T extends Comparable<T>> {
 					text += totalTime + " " + height + "\n";
 				}
 				catch(Exception e){
-					text += "-1 -1 -1 -1\n";
+					text += "-1 -1\n";
 				}
 			
 			}
 			else if(method.equals("delete")){
-				//todo
+				
+				try{
+					for(int j = 0; j < nElements; j++){
+						treapRoot = insert(treapRoot, vals[j]);
+					}
+					// inorder(treapRoot);
+					// System.out.println("Pre delete");
+					startTime = System.nanoTime();
+					for (int index = 0; index < threads.length; index++) {
+							final int id = index;
+							threads[index] = new Thread(new Runnable() {
+								public void run() {
+									for (Integer j = id; j < nElements; j += threads.length)
+										try {
+											treapRoot = delete(treapRoot, vals[j]);
+											
+											// inorder(treapRoot);
+											
+										} catch (Exception g) {
+											g.printStackTrace();
+										}
+									// System.out.println("post delete");
+									
+								}
+								
+							});;
+							
+						}
+					for (int index = 0; index < threads.length; index++) {
+						threads[index].start();
+					}
+					
+					for (int index = 0; index < threads.length; index++) {
+						threads[index].join();
+					}
+					endTime = System.nanoTime();
+					totalTime += endTime - startTime;
+					height = this.height(this.treapRoot);
+					totalHeight += height;
+					if(height > maxHeight){
+						maxHeight = height;
+					}
+					if(height < minHeight){
+						minHeight = height;
+					}
+					success++;
+					text += totalTime + " " + height + "\n";
+				}
+				catch(Exception e){
+					text += "-1 -1\n";
+				}
 			}
-			else if(method.equals("contains")){
-				//todo
+			else if(method.equals("mixed")){
+				try{
+					for(int j = 0; j < nElements/2; j++){
+						treapRoot = insert(treapRoot, vals[j]);
+					}
+					// inorder(treapRoot);
+					// System.out.println("Pre delete");
+					startTime = System.nanoTime();
+					for (int index = 0; index < threads.length; index++) {
+							final int id = index;
+							threads[index] = new Thread(new Runnable() {
+								public void run() {
+									for (Integer j = id; j < nElements; j += threads.length)
+										try {
+											treapRoot = delete(treapRoot, vals[j]);
+											treapRoot = insert(treapRoot,vals2[j]);
+											// inorder(treapRoot);
+											
+										} catch (Exception g) {
+											g.printStackTrace();
+										}
+									// System.out.println("post delete");
+									
+								}
+								
+							});;
+							
+						}
+					for (int index = 0; index < threads.length; index++) {
+						threads[index].start();
+					}
+					
+					for (int index = 0; index < threads.length; index++) {
+						threads[index].join();
+					}
+					endTime = System.nanoTime();
+					totalTime += endTime - startTime;
+					height = this.height(this.treapRoot);
+					totalHeight += height;
+					if(height > maxHeight){
+						maxHeight = height;
+					}
+					if(height < minHeight){
+						minHeight = height;
+					}
+					success++;
+					text += totalTime + " " + height + "\n";
+				}
+				catch(Exception e){
+					text += "-1 -1\n";
+				}
 			}
 			else{
 				System.out.println("Invalid method or implementation");
@@ -318,15 +535,16 @@ public class ParallelTreap<T extends Comparable<T>> {
 		
 		if (runEvaluation) {
 			ParallelTreap<Integer> t;
-			int[] nThreads = {1,2,4,6,8};
-			int[] nElements = {100,1000,10000,100000, 1000000};
-			String[] methods = {"insert"};//, "delete", "contains"};
+			int[] nThreads = {4};
+			int[] nElements = {10000};
+			String[] methods = {"mixed","insert"};//, "delete", "contains"};
 			String[] implementations = {"parallel"};//, "sequential"};
-			int nRuns = 10;
+			int nRuns = 5;
 			FileWriter writer= null;
 			String text;
 			String filename;
 			Integer[] vals;
+			Integer[] vals2;
 
 			for (int i = 0; i < nThreads.length; i++) {
 				for (int j = 0; j < nElements.length; j++) {
@@ -334,13 +552,15 @@ public class ParallelTreap<T extends Comparable<T>> {
 				
 						t= new ParallelTreap<Integer>();
 						vals = new Integer[nElements[j]];
+						vals2 = new Integer[nElements[j]];
 						for (int m = 0; m < nElements[j]; m++) {
 							vals[m] = m;
+							vals2[m] = m+nElements[j];
 						} 
 						filename = "./evaluation/data/"+nThreads[i] + "_" + nElements[j] + "_" + methods[k] + "_" + "parallel.txt";
 						try {
 							writer = new FileWriter(filename);
-							text = t.evalute(nThreads[i], nElements[j], methods[k],nRuns, vals);
+							text = t.evalute(nThreads[i], nElements[j], methods[k],nRuns, vals,vals2);
 							writer.write(text);
 						} catch (IOException e) {
 							System.err.println("Error writing to "+filename+": " + e.getMessage());
